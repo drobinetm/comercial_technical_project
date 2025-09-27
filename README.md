@@ -53,8 +53,7 @@ Commercial management system developed with Laravel, Inertia.js, and Vue.js 3, d
 
 5. **Set up the database**
    ```bash
-   touch database/database.sqlite
-   php artisan migrate
+   mysql -h <host> -P <port> -u <user> -p <database> < backup.sql
    ```
 
 6. **Start the development server**
@@ -74,10 +73,6 @@ composer test
 - **Build assets for production**: `npm run build`
 - **Run migrations**: `php artisan migrate`
 - **Generate model documentation**: `php artisan ide-helper:models`
-
-## 📄 License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
 ## 📧 Contact
 
