@@ -58,3 +58,8 @@ Route::prefix('client-analytics')->name('client.')->group(function () {
     Route::get('/summary', [ClientController::class, 'getDashboardSummary'])->name('summary');
     Route::post('/validate-ids', [ClientController::class, 'validateClientIds'])->name('validate');
 });
+
+// Health Check Route
+Route::get('/health', function () {
+    return response()->json(["OK"]);
+});
