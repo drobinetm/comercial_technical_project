@@ -2,11 +2,11 @@
 
 namespace App\Classes\Consultant;
 
-use App\Contracts\CalculationStrategyInterface;
+use App\Contracts\ICalculationStrategyInterface;
 use App\Models\CaoInvoice;
 use Carbon\Carbon;
 
-class NetRevenueData implements CalculationStrategyInterface
+class NetRevenueData implements ICalculationStrategyInterface
 {
     public function calculate(string $consultantId, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): float
     {

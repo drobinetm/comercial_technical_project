@@ -2,10 +2,10 @@
 
 namespace App\Classes\Consultant;
 
-use App\Contracts\CalculationStrategyInterface;
+use App\Contracts\ICalculationStrategyInterface;
 use Carbon\Carbon;
 
-class ProfitData implements CalculationStrategyInterface
+class ProfitData implements ICalculationStrategyInterface
 {
     private NetRevenueData $netRevenueData;
     private FixedCostData $fixedCostData;
