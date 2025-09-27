@@ -9,18 +9,11 @@
           <span class="text-gray-600">Carregando dados...</span>
         </div>
       </div>
-      
+
       <!-- Chart Views -->
       <div v-if="activeView === 'grafico'" class="p-6 relative">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Performance Comercial</h3>
-        
-        <!-- Debug info -->
-        <div class="mb-4 p-2 bg-gray-100 rounded text-xs">
-          <strong>Debug:</strong> 
-          <span v-if="selections.length === 0" class="text-red-600">No consultants selected</span>
-          <span v-else>{{ chartData?.consultants?.length || 0 }} consultants in data, {{ selections.length }} selected</span>
-        </div>
-        
+
         <div class="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
           <canvas ref="barChart" width="900" height="400" class="max-w-full max-h-full"></canvas>
         </div>
@@ -28,14 +21,7 @@
 
       <div v-if="activeView === 'pizza'" class="p-6 relative">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Participação na Receita</h3>
-        
-        <!-- Debug info -->
-        <div class="mb-4 p-2 bg-gray-100 rounded text-xs">
-          <strong>Debug:</strong>
-          <span v-if="selections.length === 0" class="text-red-600">No consultants selected</span>
-          <span v-else>{{ pieChartData?.consultants?.length || 0 }} consultants, Total revenue: {{ pieChartData?.total_revenue || 0 }}</span>
-        </div>
-        
+
         <div class="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
           <canvas ref="pieChart" width="400" height="400" class="max-w-full max-h-full"></canvas>
         </div>
@@ -98,9 +84,9 @@
             </svg>
             <h3 class="mt-2 text-sm font-medium text-gray-900">Nenhum dado encontrado</h3>
             <p class="mt-1 text-sm text-gray-500">
-              {{ selections.length === 0 
-                ? 'Selecione um ou mais consultores para ver os dados.' 
-                : 'Nenhum dado encontrado para os consultores selecionados no período especificado.' 
+              {{ selections.length === 0
+                ? 'Selecione um ou mais consultores para ver os dados.'
+                : 'Nenhum dado encontrado para os consultores selecionados no período especificado.'
               }}
             </p>
           </div>
@@ -137,18 +123,19 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-// Template refs
 const barChart = ref<HTMLCanvasElement | null>(null)
 const pieChart = ref<HTMLCanvasElement | null>(null)
-
-// Computed properties
 const groupedTableData = computed(() => {
-  const grouped: Record<string, { rows: TableRow[], totals: { receita: number, custo: number, comissao: number, lucro: number } }> = {}
-  
-  console.log('Computing grouped table data (monthly), tableData length:', props.tableData.length)
-  
-  // Group by consultant name, with monthly rows for each consultant
+  const grouped: Record<string, {
+      rows: TableRow[],
+      totals: {
+          receita: number,
+          custo: number,
+          comissao: number,
+          lucro: number
+      }
+  }> = {}
+
   props.tableData.forEach(row => {
     if (!grouped[row.name]) {
       grouped[row.name] = {
@@ -156,15 +143,14 @@ const groupedTableData = computed(() => {
         totals: { receita: 0, custo: 0, comissao: 0, lucro: 0 }
       }
     }
-    
+
     grouped[row.name].rows.push(row)
     grouped[row.name].totals.receita += row.receita
     grouped[row.name].totals.custo += row.custo
     grouped[row.name].totals.comissao += row.comissao
     grouped[row.name].totals.lucro += row.lucro
   })
-  
-  // Sort rows within each consultant by period_start date
+
   Object.keys(grouped).forEach(consultantName => {
     grouped[consultantName].rows.sort((a, b) => {
       if (a.period_start && b.period_start) {
@@ -173,8 +159,7 @@ const groupedTableData = computed(() => {
       return 0
     })
   })
-  
-  console.log('Grouped monthly table data:', Object.keys(grouped).length, 'consultants')
+
   return grouped
 })
 
@@ -190,21 +175,17 @@ const formatCurrency = (value: number) => {
 const drawBarChart = () => {
   const canvas = barChart.value
   if (!canvas) {
-    console.warn('Chart canvas element not found')
     return
   }
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    console.warn('Could not get 2d context for chart')
     return
   }
-  
-  console.log('Drawing consultant bar chart...')
-  
+
   // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height)
-  
+
   if (props.loading) {
     ctx.fillStyle = '#666'
     ctx.font = '16px Arial'
@@ -212,7 +193,7 @@ const drawBarChart = () => {
     ctx.fillText('Carregando dados...', canvas.width / 2, canvas.height / 2)
     return
   }
-  
+
   // Don't show data if no consultants are selected
   if (props.selections.length === 0) {
     ctx.fillStyle = '#666'
@@ -227,49 +208,30 @@ const drawBarChart = () => {
   }
 
   // Use real chart data if available, otherwise show sample data
+  const consultantData: Record<string, number[]> = {}
   let consultantNames: string[] = []
-  let consultantData: Record<string, number[]> = {}
   let months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai']
   let averageFixedCost = 2000
-  
-  console.log('Drawing chart with data:', props.chartData)
-  
+
   if (props.chartData && props.chartData.consultants && props.chartData.consultants.length > 0) {
-    // Use real data from backend
-    console.log('Using real chart data for consultants:', props.chartData.consultants.length)
     consultantNames = props.chartData.consultants.map((c: any) => c.name)
-    
+
     props.chartData.consultants.forEach((consultant: any) => {
       const netRevenue = consultant.net_revenue || 0
-      
-      // Show revenue data for now
-      consultantData[consultant.name] = [Math.max(netRevenue, 100)] // At least 100 for visibility
+      consultantData[consultant.name] = [Math.max(netRevenue, 100)]
     })
-    
+
     averageFixedCost = props.chartData.average_fixed_cost || 2000
-    console.log('Chart consultant data:', consultantData)
-    
-    // Adjust months to show a single period
+
     months = ['Período Selecionado']
-  } else {
-    // Fallback to sample data when no real data is available
-    console.log('Using sample chart data (no real data available)')
-    consultantNames = ['Carlos Flávio', 'Ana Paula', 'Carlos Henrique', 'Renato Marcus']
-    consultantData = {
-      'Carlos Flávio': [23000, 30000, 13000, 22000, 16000],
-      'Ana Paula': [4000, 3500, 1500, 1800, 2200],
-      'Carlos Henrique': [15000, 23000, 22000, 18000, 21000],
-      'Renato Marcus': [4500, 3800, 2000, 2300, 2800]
-    }
-    months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai']
   }
-  
+
   // Add average fixed cost line data
   consultantData['Custo Fixo Médio'] = months.map(() => averageFixedCost)
-  
+
   const colors = {
     'Carlos Flávio': '#FF8C42',
-    'Ana Paula': '#6B4E71', 
+    'Ana Paula': '#6B4E71',
     'Carlos Henrique': '#4A90E2',
     'Renato Marcus': '#7ED321',
     'Custo Fixo Médio': '#FF3B30' // Red for the line
@@ -282,21 +244,20 @@ const drawBarChart = () => {
   const startY = 70
   const endX = startX + chartWidth
   const endY = startY + chartHeight
-  
+
   // Calculate dynamic max value based on actual data
   let maxValue = 35000 // default
   if (props.chartData && props.chartData.consultants) {
-    const revenues = props.chartData.consultants.map(c => c.net_revenue || 0)
-    const costs = props.chartData.consultants.map(c => c.fixed_cost || 0)
+    const revenues = props.chartData.consultants.map((c: any) => c.net_revenue || 0)
+    const costs = props.chartData.consultants.map((c: any) => c.fixed_cost || 0)
     const allValues = [...revenues, ...costs, averageFixedCost]
-    maxValue = Math.max(...allValues, 5000) * 1.2 // Add 20% padding
-    console.log('Dynamic max value calculated:', maxValue, 'from values:', allValues)
+    maxValue = Math.max(...allValues, 5000) * 1.2
   }
 
   // Draw background grid
   ctx.strokeStyle = '#f0f0f0'
   ctx.lineWidth = 1
-  
+
   // Horizontal grid lines
   const stepY = chartHeight / 7
   for (let i = 0; i <= 7; i++) {
@@ -338,20 +299,20 @@ const drawBarChart = () => {
   const totalGroupsWidth = months.length * groupWidth
   const availableWidth = chartWidth - 40 // Leave some margin
   const groupSpacing = (availableWidth - totalGroupsWidth) / (months.length + 1)
-  
+
   months.forEach((month, monthIndex) => {
     const groupStartX = startX + 20 + groupSpacing + monthIndex * (groupWidth + groupSpacing)
-    
-    consultants.forEach((consultant, consultantIndex) => {
+
+    consultants.forEach((consultant: string, consultantIndex: number) => {
       const value = consultantData[consultant][monthIndex]
       const barHeight = (value / maxValue) * chartHeight
       const x = groupStartX + consultantIndex * (barWidth + barSpacing)
       const y = endY - barHeight
-      
+
       ctx.fillStyle = colors[consultant]
       ctx.fillRect(x, y, barWidth, barHeight)
     })
-    
+
     // Draw month label
     ctx.fillStyle = '#666'
     ctx.font = '12px Arial'
@@ -359,25 +320,25 @@ const drawBarChart = () => {
     const labelX = groupStartX + groupWidth / 2
     ctx.fillText(month, labelX, endY + 20)
   })
-  
+
   // Draw red trend line (Custo Fixo Médio)
   ctx.strokeStyle = colors['Custo Fixo Médio']
   ctx.lineWidth = 3
   ctx.beginPath()
-  
+
   months.forEach((month, monthIndex) => {
     const groupStartX = startX + 20 + groupSpacing + monthIndex * (groupWidth + groupSpacing)
     const lineX = groupStartX + groupWidth / 2
     const value = consultantData['Custo Fixo Médio'][monthIndex]
     const y = endY - (value / maxValue) * chartHeight
-    
+
     if (monthIndex === 0) {
       ctx.moveTo(lineX, y)
     } else {
       ctx.lineTo(lineX, y)
     }
   })
-  
+
   ctx.stroke()
 
   // Draw legend
@@ -385,11 +346,11 @@ const drawBarChart = () => {
   const legendStartY = startY + 30
   consultants.forEach((consultant, index) => {
     const legendY = legendStartY + index * 22
-    
+
     // Legend color box
     ctx.fillStyle = colors[consultant]
     ctx.fillRect(legendStartX, legendY - 8, 12, 12)
-    
+
     // Legend text
     ctx.fillStyle = '#333'
     ctx.font = '10px Arial'
@@ -397,7 +358,7 @@ const drawBarChart = () => {
     const displayName = consultant.includes('Carlos') ? consultant.replace('Carlos ', 'C.') : consultant
     ctx.fillText(displayName, legendStartX + 18, legendY)
   })
-  
+
   // Add red line legend
   ctx.strokeStyle = colors['Custo Fixo Médio']
   ctx.lineWidth = 3
@@ -420,20 +381,16 @@ const drawBarChart = () => {
 }
 
 const drawPieChart = () => {
-  console.log('Drawing pie chart, pieChartData:', props.pieChartData)
-  
   const canvas = pieChart.value
   if (!canvas) {
-    console.warn('Pie chart canvas not found')
     return
   }
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    console.warn('Could not get 2d context for pie chart')
     return
   }
-  
+
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   if (props.loading) {
@@ -443,7 +400,7 @@ const drawPieChart = () => {
     ctx.fillText('Carregando dados...', canvas.width / 2, canvas.height / 2)
     return
   }
-  
+
   // Don't show data if no consultants are selected
   if (props.selections.length === 0) {
     ctx.fillStyle = '#666'
@@ -460,14 +417,14 @@ const drawPieChart = () => {
   // Use pieChartData if available, otherwise use sample data
   let data
   let chartTitle = 'Participação na Receita'
-  
+
   if (props.pieChartData && props.pieChartData.consultants && props.pieChartData.consultants.length > 0) {
     const consultants = props.pieChartData.consultants
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF8C42', '#6B4E71']
-    
+
     // Check if we have any revenue data
-    const totalRevenue = consultants.reduce((sum, c) => sum + (c.net_revenue || 0), 0)
-    
+    const totalRevenue = consultants.reduce((sum: any, c: any) => sum + (c.net_revenue || 0), 0)
+
     if (totalRevenue > 0) {
       // Use revenue data
       data = consultants.map((consultant: any, index: number) => ({
@@ -483,35 +440,22 @@ const drawPieChart = () => {
           label: consultant.name,
           value: consultant.fixed_cost || 0,
           color: colors[index % colors.length]
-        })).filter(item => item.value > 0) // Only show consultants with costs
+        })).filter((item: any) => item.value > 0) // Only show consultants with costs
         chartTitle = 'Distribuição de Custos Fixos'
       } else {
         data = []
       }
     }
-    
-    console.log('Using real pie chart data for consultants:', data.length, 'consultants', data)
   } else if (props.pieChartData && props.pieChartData.chart_config) {
     // Alternative format from backend
     const chartConfig = props.pieChartData.chart_config
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF8C42', '#6B4E71']
-    
+
     data = chartConfig.labels.map((label: string, index: number) => ({
       label: label,
       value: chartConfig.datasets[0].data[index] || 0,
       color: chartConfig.datasets[0].backgroundColor[index] || colors[index % colors.length]
     }))
-    
-    console.log('Using chart config pie data:', data)
-  } else {
-    // Sample pie chart data
-    data = [
-      { label: 'Carlos Flávio', value: 30, color: '#FF6B6B' },
-      { label: 'Ana Paula', value: 25, color: '#4ECDC4' },
-      { label: 'Carlos Henrique', value: 20, color: '#45B7D1' },
-      { label: 'Renato Marcus', value: 15, color: '#96CEB4' }
-    ]
-    console.log('Using sample pie chart data')
   }
 
   const centerX = canvas.width / 2
@@ -519,11 +463,10 @@ const drawPieChart = () => {
   const radius = Math.min(canvas.width, canvas.height) * 0.25 // Responsive radius
 
   // Calculate total for percentage calculation
-  const total = data.reduce((sum, item) => sum + item.value, 0)
-  console.log('Pie chart total value:', total)
-  
+  const total = data.reduce((sum: any, item: any) => sum + item.value, 0)
+
   // Handle case when all values are zero or no meaningful data
-  if (total === 0 || !data.some(item => item.value > 0)) {
+  if (total === 0 || !data.some((item: any) => item.value > 0)) {
     ctx.fillStyle = '#666'
     ctx.font = '16px Arial'
     ctx.textAlign = 'center'
@@ -534,10 +477,10 @@ const drawPieChart = () => {
     ctx.fillText('Selecione consultores com receita para ver o gráfico', centerX, centerY + 10)
     return
   }
-  
+
   let currentAngle = -Math.PI / 2
 
-  data.forEach(segment => {
+  data.forEach((segment: any) => {
     const percentage = (segment.value / total) * 100
     const sliceAngle = (segment.value / total) * 2 * Math.PI
 
@@ -548,7 +491,7 @@ const drawPieChart = () => {
     ctx.closePath()
     ctx.fillStyle = segment.color
     ctx.fill()
-    
+
     // Draw slice border
     ctx.strokeStyle = '#fff'
     ctx.lineWidth = 2
@@ -572,7 +515,7 @@ const drawPieChart = () => {
 
     currentAngle += sliceAngle
   })
-  
+
   // Draw chart title
   ctx.fillStyle = '#333'
   ctx.font = 'bold 16px Arial'
@@ -581,7 +524,6 @@ const drawPieChart = () => {
   ctx.fillText(chartTitle, canvas.width / 2, 20)
 }
 
-// Watchers to redraw charts when view changes
 watch(() => props.activeView, (newView) => {
   nextTick(() => {
     setTimeout(() => {
@@ -593,8 +535,6 @@ watch(() => props.activeView, (newView) => {
     }, 100)
   })
 })
-
-// Watchers to redraw charts when data changes
 watch(() => props.chartData, () => {
   nextTick(() => {
     setTimeout(() => {
@@ -604,7 +544,6 @@ watch(() => props.chartData, () => {
     }, 100)
   })
 })
-
 watch(() => props.pieChartData, () => {
   nextTick(() => {
     setTimeout(() => {

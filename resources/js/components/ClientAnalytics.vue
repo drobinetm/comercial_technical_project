@@ -14,13 +14,6 @@
       <div v-if="activeView === 'grafico'" class="p-6 relative">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Performance Comercial por Cliente</h3>
 
-        <!-- Debug info -->
-        <div class="mb-4 p-2 bg-gray-100 rounded text-xs">
-          <strong>Debug:</strong>
-          <span v-if="selections.length === 0" class="text-red-600">No clients selected</span>
-          <span v-else>{{ chartData?.clients?.length || 0 }} clients in data, {{ selections.length }} selected</span>
-        </div>
-
         <div class="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
           <canvas ref="barChart" width="900" height="400" class="max-w-full max-h-full"></canvas>
         </div>
@@ -28,13 +21,6 @@
 
       <div v-if="activeView === 'pizza'" class="p-6 relative">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Participação na Receita por Cliente</h3>
-
-        <!-- Debug info -->
-        <div class="mb-4 p-2 bg-gray-100 rounded text-xs">
-          <strong>Debug:</strong>
-          <span v-if="selections.length === 0" class="text-red-600">No clients selected</span>
-          <span v-else>{{ pieChartData?.clients?.length || 0 }} clients, Total revenue: {{ pieChartData?.total_revenue || 0 }}</span>
-        </div>
 
         <div class="h-96 flex items-center justify-center bg-gray-50 rounded-lg">
           <canvas ref="pieChart" width="400" height="400" class="max-w-full max-h-full"></canvas>
@@ -202,13 +188,11 @@ const formatCurrency = (value: number) => {
 const drawBarChart = () => {
   const canvas = barChart.value
   if (!canvas) {
-    console.warn('Chart canvas element not found')
     return
   }
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    console.warn('Could not get 2d context for chart')
     return
   }
 
@@ -448,13 +432,11 @@ const drawBarChart = () => {
 const drawPieChart = () => {
   const canvas = pieChart.value
   if (!canvas) {
-    console.warn('Pie chart canvas not found')
     return
   }
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    console.warn('Could not get 2d context for pie chart')
     return
   }
 
