@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ClientService;
 use App\Services\ConsultantService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class ConsultantController extends Controller
     {
         return Inertia::render('Dashboard', [
             'consultants' => $this->consultantService->getActiveConsultants(),
+            'clients' => app(ClientService::class)->getActiveClients(),
             'initialData' => [
                 'tableData' => [],
                 'chartData' => null,
@@ -169,6 +171,7 @@ class ConsultantController extends Controller
 
         $data = [
             'consultants' => $this->consultantService->getActiveConsultants(),
+            'clients' => app(ClientService::class)->getActiveClients(),
             'initialData' => [
                 'tableData' => [],
                 'chartData' => null,
