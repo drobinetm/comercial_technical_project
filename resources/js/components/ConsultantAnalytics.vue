@@ -105,13 +105,12 @@ interface TableRow {
   period: string
   period_start?: string
   period_end?: string
-  receita: number
-  custo: number
-  comissao: number
-  lucro: number
+  receita?: number
+  custo?: number
+  comissao?: number
+  lucro?: number
 }
 
-// Props
 interface Props {
   activeView: string
   selections: string[]

@@ -57,7 +57,7 @@
                   />
                 </div>
               </div>
-              
+
               <!-- Quick Filters -->
               <div>
                 <label class="block text-xs text-gray-600 mb-1">Filtros Rápidos</label>
@@ -75,14 +75,14 @@
             </div>
           </div>
 
-          <!-- Consultores/Clientes Transfer Component -->
+          <!-- consultants/Clients Transfer Component -->
           <div class="col-span-1">
             <label class="block text-sm font-medium text-gray-700 mb-2">
               {{ activeTab === 'consultor' ? 'Consultores' : 'Clientes' }}
             </label>
             <TransferList
               v-if="activeTab === 'consultor'"
-              :options="consultores"
+              :options="consultants"
               v-model:selectedIds="selections.primary"
               available-label="Consultores Disponibles"
               selected-label="Consultores Seleccionados"
@@ -92,7 +92,7 @@
             />
             <TransferList
               v-else
-              :options="clientes"
+              :options="clients"
               v-model:selectedIds="selections.primary"
               available-label="Clientes Disponibles"
               selected-label="Clientes Seleccionados"
@@ -135,7 +135,7 @@
         :pie-chart-data="pieChartData"
         :dashboard-stats="dashboardStats"
       />
-      
+
       <ClientAnalytics
         v-else
         :active-view="activeView"
@@ -157,7 +157,6 @@ import TransferList from '@/components/TransferList.vue'
 import ConsultantAnalytics from '@/components/ConsultantAnalytics.vue'
 import ClientAnalytics from '@/components/ClientAnalytics.vue'
 
-// Define props
 interface Props {
   consultants: Option[];
   clients: Option[];
@@ -184,10 +183,15 @@ interface TableRow {
   period: string
   period_start?: string
   period_end?: string
-  receita: number
-  custo: number
-  comissao: number
-  lucro: number
+  receita?: number
+  custo?: number
+  comissao?: number
+  lucro?: number
+  net_revenue?: number
+  consultant_costs?: number
+  profit?: number
+  profit_margin?: number
+  roi?: number
 }
 
 // Reactive data
@@ -198,14 +202,13 @@ const filters = ref({
   startDate: '2007-01-01',
   endDate: '2007-02-28'
 })
-
 const selections = ref({
   primary: [] as string[]
 })
 
 // Data from props and reactive state
-const consultores = ref<Option[]>(props.consultants || [])
-const clientes = ref<Option[]>(props.clients || [])
+const consultants = ref<Option[]>(props.consultants || [])
+const clients = ref<Option[]>(props.clients || [])
 const tableData = ref<TableRow[]>(props.initialData.tableData || [])
 const chartData = ref<any>(props.initialData.chartData || null)
 const pieChartData = ref<any>(props.initialData.pieChartData || null)
@@ -216,13 +219,11 @@ const tabs = [
   { id: 'consultor', name: 'Por Consultor' },
   { id: 'cliente', name: 'Por Cliente' }
 ]
-
 const views = [
   { id: 'relatorio', name: 'Relatório' },
   { id: 'grafico', name: 'Gráfico' },
   { id: 'pizza', name: 'Pizza' }
 ]
-
 const quickDateFilters = [
   { id: 'thisMonth', name: 'Este Mês' },
   { id: 'lastMonth', name: 'Mês Anterior' },
@@ -230,71 +231,58 @@ const quickDateFilters = [
   { id: 'year', name: 'Este Año' }
 ]
 
-
 // Inertia Methods
 const fetchDashboardData = (isClient: boolean = false) => {
   if (loading.value) return
-  
+
   const params: Record<string, any> = {
     date_from: filters.value.startDate,
     date_to: filters.value.endDate
   }
-  
+
   if (isClient) {
     params.client_ids = selections.value.primary
   } else {
     params.consultant_ids = selections.value.primary
   }
-  
+
   loading.value = true
-  
+
   const routeName = isClient ? '/dashboard/client-data' : '/dashboard/consultant-data'
-  
+
   router.visit(routeName, {
     data: params,
     preserveState: true,
     preserveScroll: true,
     onSuccess: (page) => {
       loading.value = false
-      // Update reactive data with fresh data from server response
+
       const newData = page.props.initialData
       if (newData) {
         tableData.value = newData.tableData || []
         chartData.value = newData.chartData || null
         pieChartData.value = newData.pieChartData || null
         dashboardStats.value = newData.dashboardStats || null
-        console.log('Data updated:', {
-          tableRows: tableData.value.length,
-          hasChartData: !!chartData.value,
-          hasPieData: !!pieChartData.value,
-          hasStats: !!dashboardStats.value
-        })
       }
     },
     onError: () => {
       loading.value = false
-      alert(isClient 
-        ? 'Erro ao carregar dados do cliente. Verifique sua conexão e tente novamente.' 
+      alert(isClient
+        ? 'Erro ao carregar dados do cliente. Verifique sua conexão e tente novamente.'
         : 'Erro ao carregar dados do consultor. Verifique sua conexão e tente novamente.')
     }
   })
 }
 
-
 // Handle consultant selection changes
 const handleConsultantSelectionChange = (selectedIds: (string | number)[]) => {
   selections.value.primary = selectedIds as string[]
-  console.log('Consultant selection changed:', selectedIds)
-  
   if (selectedIds.length === 0) {
-    // Clear data when no consultants are selected
-    console.log('No consultants selected, clearing data')
     tableData.value = []
     chartData.value = null
     pieChartData.value = null
     dashboardStats.value = null
   } else {
-    // Fetch data when consultants are selected
     fetchDashboardData(false)
   }
 }
@@ -302,17 +290,12 @@ const handleConsultantSelectionChange = (selectedIds: (string | number)[]) => {
 // Handle client selection changes
 const handleClientSelectionChange = (selectedIds: (string | number)[]) => {
   selections.value.primary = selectedIds as string[]
-  console.log('Client selection changed:', selectedIds)
-  
   if (selectedIds.length === 0) {
-    // Clear data when no clients are selected
-    console.log('No clients selected, clearing data')
     tableData.value = []
     chartData.value = null
     pieChartData.value = null
     dashboardStats.value = null
   } else {
-    // Fetch client data when clients are selected
     fetchDashboardData(true)
   }
 }
@@ -347,18 +330,14 @@ const applyQuickFilter = (filterId: string) => {
   }
 }
 
-// Watchers for filter changes
 watch([() => filters.value.startDate, () => filters.value.endDate], () => {
   if (selections.value.primary.length > 0) {
     fetchDashboardData(activeTab.value === 'cliente')
   }
 }, { deep: true })
-
-// Watcher to redraw charts when tab changes and load appropriate data
 watch(activeTab, (newTab) => {
   console.log('Tab changed to:', newTab)
-  
-  // Clear current selections when switching tabs
+
   selections.value.primary = []
   tableData.value = []
   chartData.value = null
@@ -369,8 +348,8 @@ watch(activeTab, (newTab) => {
 // Lifecycle hooks - data is now passed as props, no need to fetch
 onMounted(() => {
   console.log('Dashboard mounted with props:', {
-    consultants: consultores.value.length,
-    clients: clientes.value.length,
+    consultants: consultants.value.length,
+    clients: clients.value.length,
     initialData: !!props.initialData
   })
 })

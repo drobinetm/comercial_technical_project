@@ -102,9 +102,9 @@ interface TableRow {
   period: string
   period_start?: string
   period_end?: string
-  net_revenue: number
-  consultant_costs: number
-  profit: number
+  net_revenue?: number
+  consultant_costs?: number
+  profit?: number
   profit_margin?: number
   roi?: number
 }

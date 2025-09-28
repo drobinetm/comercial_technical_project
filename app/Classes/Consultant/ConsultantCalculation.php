@@ -20,10 +20,10 @@ class ConsultantCalculation
         ?CommissionData $commissionData = null,
         ?ProfitData $profitData = null
     ) {
-        $this->netRevenueData = $netRevenueData ?? new NetRevenueData;
-        $this->fixedCostData = $fixedCostData ?? new FixedCostData;
-        $this->commissionData = $commissionData ?? new CommissionData;
-        $this->profitData = $profitData ?? new ProfitData;
+        $this->netRevenueData = $netRevenueData ?? new NetRevenueData();
+        $this->fixedCostData = $fixedCostData ?? new FixedCostData();
+        $this->commissionData = $commissionData ?? new CommissionData();
+        $this->profitData = $profitData ?? new ProfitData();
     }
 
     public function getNetRevenue(string $consultantId, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): float

@@ -6,7 +6,7 @@ use App\Contracts\IClientRepositoryInterface;
 use App\Models\CaoClient;
 use App\Models\CaoInvoice;
 use Carbon\Carbon;
-use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class ClientRepository implements IClientRepositoryInterface
