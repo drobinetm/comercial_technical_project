@@ -54,11 +54,11 @@
                 <tr v-for="row in group.rows" :key="row.id" class="hover:bg-gray-50 border-b border-gray-200">
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ row.period }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ formatCurrency(row.receita) }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">{{ formatCurrency(row.custo) }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">{{ formatCurrency(row.comissao) }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium" :class="row.lucro >= 0 ? 'text-blue-600' : 'text-red-600'">
-                    {{ formatCurrency(row.lucro) }}
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">{{ formatCurrency(row.receita ?? 0) }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">{{ formatCurrency(row.custo ?? 0) }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">{{ formatCurrency(row.comissao ?? 0) }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium" :class="row.lucro ?? 0 >= 0 ? 'text-blue-600' : 'text-red-600'">
+                    {{ formatCurrency(row.lucro ?? 0) }}
                   </td>
                 </tr>
                 <!-- Subtotal Row -->
@@ -144,10 +144,10 @@ const groupedTableData = computed(() => {
     }
 
     grouped[row.name].rows.push(row)
-    grouped[row.name].totals.receita += row.receita
-    grouped[row.name].totals.custo += row.custo
-    grouped[row.name].totals.comissao += row.comissao
-    grouped[row.name].totals.lucro += row.lucro
+    grouped[row.name].totals.receita += row.receita ?? 0
+    grouped[row.name].totals.custo += row.custo ?? 0
+    grouped[row.name].totals.comissao += row.comissao ?? 0
+    grouped[row.name].totals.lucro += row.lucro ?? 0
   })
 
   Object.keys(grouped).forEach(consultantName => {
@@ -161,6 +161,23 @@ const groupedTableData = computed(() => {
 
   return grouped
 })
+const colors = [
+    '#FF8C42',
+    '#6B4E71',
+    '#4A90E2',
+    '#7ED321',
+    '#FF3B30',
+    '#9B59B6',
+    '#1ABC9C',
+    '#F39C12',
+    '#FF6B6B',
+    '#4ECDC4',
+    '#45B7D1',
+    '#96CEB4',
+    '#FFEAA7',
+    '#FF8C42',
+    '#6B4E71'
+]
 
 // Methods
 const formatCurrency = (value: number) => {
@@ -168,6 +185,11 @@ const formatCurrency = (value: number) => {
     style: 'currency',
     currency: 'BRL'
   }).format(Math.abs(value))
+}
+
+const getRandomColor = () => {
+    const index = Math.floor(Math.random() * colors.length);
+    return colors[index];
 }
 
 // Chart drawing functions
@@ -209,7 +231,7 @@ const drawBarChart = () => {
   // Use real chart data if available, otherwise show sample data
   const consultantData: Record<string, number[]> = {}
   let consultantNames: string[] = []
-  let months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai']
+  let months: string[] = []
   let averageFixedCost = 2000
 
   if (props.chartData && props.chartData.consultants && props.chartData.consultants.length > 0) {
@@ -225,15 +247,8 @@ const drawBarChart = () => {
     months = ['Período Selecionado']
   }
 
-  // Add average fixed cost line data
-  consultantData['Custo Fixo Médio'] = months.map(() => averageFixedCost)
-
-  const colors = {
-    'Carlos Flávio': '#FF8C42',
-    'Ana Paula': '#6B4E71',
-    'Carlos Henrique': '#4A90E2',
-    'Renato Marcus': '#7ED321',
-    'Custo Fixo Médio': '#FF3B30' // Red for the line
+  if (months.length > 0) {
+      consultantData['Custo Fixo Médio'] = months.map(() => averageFixedCost)
   }
 
   // Chart dimensions
@@ -298,6 +313,7 @@ const drawBarChart = () => {
   const totalGroupsWidth = months.length * groupWidth
   const availableWidth = chartWidth - 40 // Leave some margin
   const groupSpacing = (availableWidth - totalGroupsWidth) / (months.length + 1)
+  const consultantsColors: Record<string, string> = {}
 
   months.forEach((month, monthIndex) => {
     const groupStartX = startX + 20 + groupSpacing + monthIndex * (groupWidth + groupSpacing)
@@ -308,7 +324,12 @@ const drawBarChart = () => {
       const x = groupStartX + consultantIndex * (barWidth + barSpacing)
       const y = endY - barHeight
 
-      ctx.fillStyle = colors[consultant]
+      // Save the color for this consult [Get next in legend]
+      const color = getRandomColor()
+      consultantsColors[consultant] = color
+
+      // Apply color to the chart by consultant
+      ctx.fillStyle = color
       ctx.fillRect(x, y, barWidth, barHeight)
     })
 
@@ -321,11 +342,13 @@ const drawBarChart = () => {
   })
 
   // Draw red trend line (Custo Fixo Médio)
-  ctx.strokeStyle = colors['Custo Fixo Médio']
+  ctx.strokeStyle = colors[4]
   ctx.lineWidth = 3
   ctx.beginPath()
 
   months.forEach((month, monthIndex) => {
+    console.log(month)
+
     const groupStartX = startX + 20 + groupSpacing + monthIndex * (groupWidth + groupSpacing)
     const lineX = groupStartX + groupWidth / 2
     const value = consultantData['Custo Fixo Médio'][monthIndex]
@@ -347,7 +370,7 @@ const drawBarChart = () => {
     const legendY = legendStartY + index * 22
 
     // Legend color box
-    ctx.fillStyle = colors[consultant]
+    ctx.fillStyle = consultantsColors[consultant]
     ctx.fillRect(legendStartX, legendY - 8, 12, 12)
 
     // Legend text
@@ -359,7 +382,7 @@ const drawBarChart = () => {
   })
 
   // Add red line legend
-  ctx.strokeStyle = colors['Custo Fixo Médio']
+  ctx.strokeStyle = colors[4]
   ctx.lineWidth = 3
   ctx.beginPath()
   ctx.moveTo(legendStartX, legendStartY + 4 * 22 - 3)
@@ -389,7 +412,6 @@ const drawPieChart = () => {
   if (!ctx) {
     return
   }
-
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   if (props.loading) {
@@ -413,17 +435,14 @@ const drawPieChart = () => {
     return
   }
 
-  // Use pieChartData if available, otherwise use sample data
   let data
   let chartTitle = 'Participação na Receita'
 
+    // Create the pie chart data with the custom properties
   if (props.pieChartData && props.pieChartData.consultants && props.pieChartData.consultants.length > 0) {
     const consultants = props.pieChartData.consultants
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF8C42', '#6B4E71']
 
-    // Check if we have any revenue data
     const totalRevenue = consultants.reduce((sum: any, c: any) => sum + (c.net_revenue || 0), 0)
-
     if (totalRevenue > 0) {
       // Use revenue data
       data = consultants.map((consultant: any, index: number) => ({
@@ -431,6 +450,7 @@ const drawPieChart = () => {
         value: consultant.net_revenue || 0,
         color: consultant.color || colors[index % colors.length]
       }))
+
       chartTitle = 'Participação na Receita'
     } else {
       // Fallback to fixed costs from the main chart data if available
@@ -445,11 +465,9 @@ const drawPieChart = () => {
         data = []
       }
     }
-  } else if (props.pieChartData && props.pieChartData.chart_config) {
-    // Alternative format from backend
+  }
+  else if (props.pieChartData && props.pieChartData.chart_config) {
     const chartConfig = props.pieChartData.chart_config
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#FF8C42', '#6B4E71']
-
     data = chartConfig.labels.map((label: string, index: number) => ({
       label: label,
       value: chartConfig.datasets[0].data[index] || 0,
@@ -457,63 +475,66 @@ const drawPieChart = () => {
     }))
   }
 
-  const centerX = canvas.width / 2
-  const centerY = canvas.height / 2
-  const radius = Math.min(canvas.width, canvas.height) * 0.25 // Responsive radius
+    // Apply format data if is valid
+  if (data) {
+      const centerX = canvas.width / 2
+      const centerY = canvas.height / 2
+      const radius = Math.min(canvas.width, canvas.height) * 0.25 // Responsive radius
 
-  // Calculate total for percentage calculation
-  const total = data.reduce((sum: any, item: any) => sum + item.value, 0)
+      // Calculate total for percentage calculation
+      const total = data.reduce((sum: any, item: any) => sum + item.value, 0)
 
-  // Handle case when all values are zero or no meaningful data
-  if (total === 0 || !data.some((item: any) => item.value > 0)) {
-    ctx.fillStyle = '#666'
-    ctx.font = '16px Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('Nenhum dado de receita disponível', centerX, centerY - 10)
-    ctx.font = '12px Arial'
-    ctx.fillStyle = '#999'
-    ctx.fillText('Selecione consultores com receita para ver o gráfico', centerX, centerY + 10)
-    return
+      // Handle case when all values are zero or no meaningful data
+      if (total === 0 || !data.some((item: any) => item.value > 0)) {
+          ctx.fillStyle = '#666'
+          ctx.font = '16px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('Nenhum dado de receita disponível', centerX, centerY - 10)
+          ctx.font = '12px Arial'
+          ctx.fillStyle = '#999'
+          ctx.fillText('Selecione consultores com receita para ver o gráfico', centerX, centerY + 10)
+          return
+      }
+
+      let currentAngle = -Math.PI / 2
+
+      data.forEach((segment: any) => {
+          const percentage = (segment.value / total) * 100
+          const sliceAngle = (segment.value / total) * 2 * Math.PI
+
+          // Draw slice
+          ctx.beginPath()
+          ctx.moveTo(centerX, centerY)
+          ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle)
+          ctx.closePath()
+          ctx.fillStyle = segment.color
+          ctx.fill()
+
+          // Draw slice border
+          ctx.strokeStyle = '#fff'
+          ctx.lineWidth = 2
+          ctx.stroke()
+
+          // Draw label only if slice is big enough
+          if (percentage > 5) {
+              const labelAngle = currentAngle + sliceAngle / 2
+              const labelRadius = radius + 35
+              const labelX = centerX + Math.cos(labelAngle) * labelRadius
+              const labelY = centerY + Math.sin(labelAngle) * labelRadius
+
+              ctx.fillStyle = '#333'
+              ctx.font = 'bold 11px Arial'
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText(`${segment.label}`, labelX, labelY - 6)
+              ctx.font = '10px Arial'
+              ctx.fillText(`${percentage.toFixed(1)}%`, labelX, labelY + 6)
+          }
+
+          currentAngle += sliceAngle
+      })
   }
-
-  let currentAngle = -Math.PI / 2
-
-  data.forEach((segment: any) => {
-    const percentage = (segment.value / total) * 100
-    const sliceAngle = (segment.value / total) * 2 * Math.PI
-
-    // Draw slice
-    ctx.beginPath()
-    ctx.moveTo(centerX, centerY)
-    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle)
-    ctx.closePath()
-    ctx.fillStyle = segment.color
-    ctx.fill()
-
-    // Draw slice border
-    ctx.strokeStyle = '#fff'
-    ctx.lineWidth = 2
-    ctx.stroke()
-
-    // Draw label only if slice is big enough
-    if (percentage > 5) {
-      const labelAngle = currentAngle + sliceAngle / 2
-      const labelRadius = radius + 35
-      const labelX = centerX + Math.cos(labelAngle) * labelRadius
-      const labelY = centerY + Math.sin(labelAngle) * labelRadius
-
-      ctx.fillStyle = '#333'
-      ctx.font = 'bold 11px Arial'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(`${segment.label}`, labelX, labelY - 6)
-      ctx.font = '10px Arial'
-      ctx.fillText(`${percentage.toFixed(1)}%`, labelX, labelY + 6)
-    }
-
-    currentAngle += sliceAngle
-  })
 
   // Draw chart title
   ctx.fillStyle = '#333'

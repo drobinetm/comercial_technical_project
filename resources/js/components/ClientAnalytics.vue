@@ -177,12 +177,35 @@ const pivotTableData = computed(() => {
     grandTotal
   }
 })
+const colors = [
+    '#FF8C42',
+    '#6B4E71',
+    '#4A90E2',
+    '#7ED321',
+    '#FF3B30',
+    '#9B59B6',
+    '#1ABC9C',
+    '#F39C12',
+    '#FF6B6B',
+    '#4ECDC4',
+    '#45B7D1',
+    '#96CEB4',
+    '#FFEAA7',
+    '#FF8C42',
+    '#6B4E71'
+]
 
+// Methods
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
   }).format(Math.abs(value))
+}
+
+const getRandomColor = () => {
+    const index = Math.floor(Math.random() * colors.length);
+    return colors[index];
 }
 
 const drawBarChart = () => {
@@ -195,7 +218,6 @@ const drawBarChart = () => {
   if (!ctx) {
     return
   }
-
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   if (props.loading) {
@@ -218,9 +240,11 @@ const drawBarChart = () => {
     return
   }
 
+  const clientData: Record<string, number[]> = {}
+  const clientsColors: Record<string, string> = {}
+
   let clientNames: string[] = []
-  let clientData: Record<string, number[]> = {}
-  let months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai']
+  let months: string[] = []
   let averageConsultantCosts = 2000
 
   if (props.chartData && props.chartData.clients && props.chartData.clients.length > 0) {
@@ -238,28 +262,11 @@ const drawBarChart = () => {
     averageConsultantCosts = props.chartData.average_consultant_costs || 2000
 
     months = ['Período Selecionado']
-  } else {
-    clientNames = ['Toyota', 'Traffic', 'Unicoba', 'WebMotors', 'TIM']
-    clientData = {
-      'Toyota': [35000, 40000, 28000, 42000, 38000],
-      'Traffic': [25000, 30000, 22000, 28000, 26000],
-      'Unicoba': [15000, 18000, 12000, 20000, 17000],
-      'WebMotors': [12000, 15000, 10000, 16000, 14000],
-      'TIM': [8000, 10000, 7000, 11000, 9000]
+  }
+
+   if (months.length > 0) {
+       clientData['Custo Médio de Consultoria'] = months.map(() => averageConsultantCosts)
     }
-    months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai']
-  }
-
-  clientData['Custo Médio de Consultoria'] = months.map(() => averageConsultantCosts)
-
-  const colors = {
-    'Toyota': '#10B981',
-    'Traffic': '#3B82F6',
-    'Unicoba': '#F59E0B',
-    'WebMotors': '#EF4444',
-    'TIM': '#8B5CF6',
-    'Custo Médio de Consultoria': '#DC2626' // Red for the line
-  }
 
   // Chart dimensions
   const chartWidth = canvas.width - 180
@@ -327,7 +334,9 @@ const drawBarChart = () => {
   // Draw client lines
   clientNames.forEach((client: string) => {
     const data = clientData[client] || []
-    const color = colors[client] || '#10B981'
+
+    const color = getRandomColor()
+    clientsColors[client] = color
 
     ctx.strokeStyle = color
     ctx.lineWidth = 3
@@ -355,7 +364,7 @@ const drawBarChart = () => {
 
   // Draw average line if exists
   if (clientData['Custo Médio de Consultoria']) {
-    ctx.strokeStyle = colors['Custo Médio de Consultoria']
+    ctx.strokeStyle = colors[4]
     ctx.lineWidth = 3
     ctx.setLineDash([5, 5]) // Dashed line
     ctx.beginPath()
@@ -378,11 +387,11 @@ const drawBarChart = () => {
   // Draw legend
   const legendStartX = endX + 30
   const legendStartY = startY + 30
-  clientNames.forEach((client: any, index: number) => {
+  clientNames.forEach((client: string, index: number) => {
     const legendY = legendStartY + index * 22
 
     // Legend line
-    ctx.strokeStyle = colors[client] || '#10B981'
+    ctx.strokeStyle = clientsColors[client] || '#10B981'
     ctx.lineWidth = 3
     ctx.beginPath()
     ctx.moveTo(legendStartX, legendY - 3)
@@ -390,7 +399,7 @@ const drawBarChart = () => {
     ctx.stroke()
 
     // Legend point
-    ctx.fillStyle = colors[client] || '#10B981'
+    ctx.fillStyle = clientsColors[client] || '#10B981'
     ctx.beginPath()
     ctx.arc(legendStartX + 10, legendY - 3, 4, 0, 2 * Math.PI)
     ctx.fill()
@@ -405,7 +414,7 @@ const drawBarChart = () => {
   // Add average line legend
   if (clientData['Custo Médio de Consultoria']) {
     const legendY = legendStartY + clientNames.length * 22
-    ctx.strokeStyle = colors['Custo Médio de Consultoria']
+    ctx.strokeStyle = colors[4]
     ctx.lineWidth = 3
     ctx.setLineDash([5, 5])
     ctx.beginPath()
@@ -465,12 +474,11 @@ const drawPieChart = () => {
   let data
   let chartTitle = 'Participação na Receita por Cliente'
 
+    // Create the pie chart data with the custom properties
   if (props.pieChartData && props.pieChartData.clients && props.pieChartData.clients.length > 0) {
     const clients = props.pieChartData.clients
-    const colors = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16']
 
     const totalRevenue = clients.reduce((sum: any, c: any) => sum + (c.net_revenue || 0), 0)
-
     if (totalRevenue > 0) {
       data = clients.map((client: any, index: number) => ({
         label: client.name,
@@ -490,82 +498,76 @@ const drawPieChart = () => {
         data = []
       }
     }
-  } else if (props.pieChartData && props.pieChartData.chart_config) {
+  }
+  else if (props.pieChartData && props.pieChartData.chart_config) {
     const chartConfig = props.pieChartData.chart_config
-    const colors = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16']
-
     data = chartConfig.labels.map((label: string, index: number) => ({
       label: label,
       value: chartConfig.datasets[0].data[index] || 0,
       color: chartConfig.datasets[0].backgroundColor[index] || colors[index % colors.length]
     }))
-  } else {
-    data = [
-      { label: 'Toyota', value: 30, color: '#10B981' },
-      { label: 'Traffic', value: 25, color: '#3B82F6' },
-      { label: 'Unicoba', value: 20, color: '#F59E0B' },
-      { label: 'WebMotors', value: 15, color: '#EF4444' },
-      { label: 'TIM', value: 10, color: '#8B5CF6' }
-    ]
   }
 
-  const centerX = canvas.width / 2
-  const centerY = canvas.height / 2
-  const radius = Math.min(canvas.width, canvas.height) * 0.25 // Responsive radius
+  // Apply format data if is valid
+  if (data) {
+      const centerX = canvas.width / 2
+      const centerY = canvas.height / 2
+      const radius = Math.min(canvas.width, canvas.height) * 0.25 // Responsive radius
 
-  // Calculate total for percentage calculation
-  const total = data.reduce((sum: any, item: any) => sum + item.value, 0)
+      // Calculate total for percentage calculation
+      const total = data.reduce((sum: any, item: any) => sum + item.value, 0)
 
-  // Handle case when all values are zero or no meaningful data
-  if (total === 0 || !data.some((item: any) => item.value > 0)) {
-    ctx.fillStyle = '#666'
-    ctx.font = '16px Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('Nenhum dado de receita disponível', centerX, centerY - 10)
-    ctx.font = '12px Arial'
-    ctx.fillStyle = '#999'
-    ctx.fillText('Selecione clientes com receita para ver o gráfico', centerX, centerY + 10)
-    return
+      // Handle case when all values are zero or no meaningful data
+      if (total === 0 || !data.some((item: any) => item.value > 0)) {
+          ctx.fillStyle = '#666'
+          ctx.font = '16px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('Nenhum dado de receita disponível', centerX, centerY - 10)
+          ctx.font = '12px Arial'
+          ctx.fillStyle = '#999'
+          ctx.fillText('Selecione clientes com receita para ver o gráfico', centerX, centerY + 10)
+          return
+      }
+
+      let currentAngle = -Math.PI / 2
+
+      data.forEach((segment: any) => {
+          const percentage = (segment.value / total) * 100
+          const sliceAngle = (segment.value / total) * 2 * Math.PI
+
+          // Draw slice
+          ctx.beginPath()
+          ctx.moveTo(centerX, centerY)
+          ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle)
+          ctx.closePath()
+          ctx.fillStyle = segment.color
+          ctx.fill()
+
+          // Draw slice border
+          ctx.strokeStyle = '#fff'
+          ctx.lineWidth = 2
+          ctx.stroke()
+
+          // Draw label only if slice is big enough
+          if (percentage > 5) {
+              const labelAngle = currentAngle + sliceAngle / 2
+              const labelRadius = radius + 35
+              const labelX = centerX + Math.cos(labelAngle) * labelRadius
+              const labelY = centerY + Math.sin(labelAngle) * labelRadius
+
+              ctx.fillStyle = '#333'
+              ctx.font = 'bold 11px Arial'
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText(`${segment.label}`, labelX, labelY - 6)
+              ctx.font = '10px Arial'
+              ctx.fillText(`${percentage.toFixed(1)}%`, labelX, labelY + 6)
+          }
+
+          currentAngle += sliceAngle
+      })
   }
-
-  let currentAngle = -Math.PI / 2
-
-  data.forEach((segment: any) => {
-    const percentage = (segment.value / total) * 100
-    const sliceAngle = (segment.value / total) * 2 * Math.PI
-
-    // Draw slice
-    ctx.beginPath()
-    ctx.moveTo(centerX, centerY)
-    ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle)
-    ctx.closePath()
-    ctx.fillStyle = segment.color
-    ctx.fill()
-
-    // Draw slice border
-    ctx.strokeStyle = '#fff'
-    ctx.lineWidth = 2
-    ctx.stroke()
-
-    // Draw label only if slice is big enough
-    if (percentage > 5) {
-      const labelAngle = currentAngle + sliceAngle / 2
-      const labelRadius = radius + 35
-      const labelX = centerX + Math.cos(labelAngle) * labelRadius
-      const labelY = centerY + Math.sin(labelAngle) * labelRadius
-
-      ctx.fillStyle = '#333'
-      ctx.font = 'bold 11px Arial'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(`${segment.label}`, labelX, labelY - 6)
-      ctx.font = '10px Arial'
-      ctx.fillText(`${percentage.toFixed(1)}%`, labelX, labelY + 6)
-    }
-
-    currentAngle += sliceAngle
-  })
 
   // Draw chart title
   ctx.fillStyle = '#333'
