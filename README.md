@@ -64,7 +64,9 @@ Commercial management system developed with Laravel, Inertia.js, and Vue.js 3, d
 ## 🧪 Running Tests
 
 ```bash
-composer test
+./vendor/bin/pest
+ # or with Laravel command
+ php artisan test
 ```
 
 ## 🧑‍💻 Useful Commands
