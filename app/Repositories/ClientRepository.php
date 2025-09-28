@@ -6,6 +6,7 @@ use App\Contracts\IClientRepositoryInterface;
 use App\Models\CaoClient;
 use App\Models\CaoInvoice;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 
 class ClientRepository implements IClientRepositoryInterface
@@ -28,19 +29,22 @@ class ClientRepository implements IClientRepositoryInterface
 
     public function getClientReport(array $clientIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
+        $report = collect();
+
+        // Get filtered active clients
         $clientsQuery = $this->getFilteredClients($clientIds);
         $clients = $clientsQuery->get();
 
-        $report = collect();
-
         foreach ($clients as $client) {
-            $netRevenue = $this->calculateClientNetRevenue($client->co_cliente, $dateFrom, $dateTo);
-            $consultantCosts = $this->calculateConsultantCosts($client->co_cliente, $dateFrom, $dateTo);
+            $clientId = $client->{'co_cliente'};
+
+            $netRevenue = $this->calculateClientNetRevenue($clientId, $dateFrom, $dateTo);
+            $consultantCosts = $this->calculateConsultantCosts($clientId, $dateFrom, $dateTo);
             $profit = $netRevenue - $consultantCosts;
 
             $report->push([
-                'co_cliente' => $client->co_cliente,
-                'no_cliente' => $client->no_razao ?: $client->no_fantasia,
+                'co_cliente' => $clientId,
+                'no_cliente' => $client->{'no_razao'} ?: $client->{'no_fantasia'},
                 'net_revenue' => round($netRevenue, 2),
                 'consultant_costs' => round($consultantCosts, 2),
                 'profit' => round($profit, 2),
@@ -52,22 +56,26 @@ class ClientRepository implements IClientRepositoryInterface
 
     public function getClientChart(array $clientIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
-        $clientsQuery = $this->getFilteredClients($clientIds);
-        $clients = $clientsQuery->get();
-
         $chartData = collect();
         $totalCosts = 0;
+
+        // Get filtered active clients
+        $clientsQuery = $this->getFilteredClients($clientIds);
+        $clients = $clientsQuery->get();
         $clientCount = $clients->count();
 
         foreach ($clients as $client) {
-            $netRevenue = $this->calculateClientNetRevenue($client->co_cliente, $dateFrom, $dateTo);
-            $consultantCosts = $this->calculateConsultantCosts($client->co_cliente, $dateFrom, $dateTo);
+            $clientId = $client->{'co_cliente'};
+
+            $netRevenue = $this->calculateClientNetRevenue($clientId, $dateFrom, $dateTo);
+            $consultantCosts = $this->calculateConsultantCosts($clientId, $dateFrom, $dateTo);
+
             $profit = $netRevenue - $consultantCosts;
             $totalCosts += $consultantCosts;
 
             $chartData->push([
-                'co_cliente' => $client->co_cliente,
-                'no_cliente' => $client->no_razao ?: $client->no_fantasia,
+                'co_cliente' => $clientId,
+                'no_cliente' => $client->{'no_razao'} ?: $client->{'no_fantasia'},
                 'net_revenue' => round($netRevenue, 2),
                 'consultant_costs' => round($consultantCosts, 2),
                 'profit' => round($profit, 2),
@@ -81,24 +89,27 @@ class ClientRepository implements IClientRepositoryInterface
         return collect([
             'data' => $chartData->sortByDesc('net_revenue')->values(),
             'average_consultant_costs' => $averageCosts,
-            'max_axis_value' => round($maxValue, 0),
+            'max_axis_value' => round($maxValue),
         ]);
     }
 
     public function getClientPieChart(array $clientIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
-        $clientsQuery = $this->getFilteredClients($clientIds);
-        $clients = $clientsQuery->get();
-
         $pieData = collect();
         $totalRevenue = 0;
 
+        // Get filtered active clients
+        $clientsQuery = $this->getFilteredClients($clientIds);
+        $clients = $clientsQuery->get();
+
         foreach ($clients as $client) {
-            $netRevenue = $this->calculateClientNetRevenue($client->co_cliente, $dateFrom, $dateTo);
+            $clientId = $client->{'co_cliente'};
+
+            $netRevenue = $this->calculateClientNetRevenue($clientId, $dateFrom, $dateTo);
 
             $pieData->push([
-                'co_cliente' => $client->co_cliente,
-                'no_cliente' => $client->no_razao ?: $client->no_fantasia,
+                'co_cliente' => $clientId,
+                'no_cliente' => $client->{'no_razao'} ?: $client->{'no_fantasia'},
                 'net_revenue' => $netRevenue,
             ]);
 
@@ -121,15 +132,18 @@ class ClientRepository implements IClientRepositoryInterface
 
     public function getClientStats(array $clientIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): array
     {
-        $clients = $this->getFilteredClients($clientIds)->get();
-        $totalClients = $clients->count();
-
         $totalRevenue = 0;
         $totalConsultantCosts = 0;
 
+        // Get filtered active clients
+        $clients = $this->getFilteredClients($clientIds)->get();
+        $totalClients = $clients->count();
+
         foreach ($clients as $client) {
-            $totalRevenue += $this->calculateClientNetRevenue($client->co_cliente, $dateFrom, $dateTo);
-            $totalConsultantCosts += $this->calculateConsultantCosts($client->co_cliente, $dateFrom, $dateTo);
+            $clientId = $client->{'co_cliente'};
+
+            $totalRevenue += $this->calculateClientNetRevenue($clientId, $dateFrom, $dateTo);
+            $totalConsultantCosts += $this->calculateConsultantCosts($clientId, $dateFrom, $dateTo);
         }
 
         $totalProfit = $totalRevenue - $totalConsultantCosts;
@@ -144,7 +158,7 @@ class ClientRepository implements IClientRepositoryInterface
         ];
     }
 
-    private function getFilteredClients(array $clientIds = [])
+    private function getFilteredClients(array $clientIds = []): Builder
     {
         $query = CaoClient::whereNotNull('no_razao')
             ->where('no_razao', '!=', '')
@@ -170,16 +184,13 @@ class ClientRepository implements IClientRepositoryInterface
             $query->whereBetween('data_emissao', [$dateFrom, $dateTo]);
         }
 
-        $invoices = $query->select(
-            'valor',
-            'total_imp_inc'
-        )->get();
+        $invoices = $query->select('valor', 'total_imp_inc')->get();
 
         $netRevenue = 0;
 
         foreach ($invoices as $invoice) {
-            $tax = ($invoice->valor * $invoice->total_imp_inc) / 100;
-            $netRevenue += ($invoice->valor - $tax);
+            $tax = ($invoice->{'valor'} * $invoice->{'total_imp_inc'}) / 100;
+            $netRevenue += ($invoice->{'valor'} - $tax);
         }
 
         return $netRevenue;
@@ -202,7 +213,7 @@ class ClientRepository implements IClientRepositoryInterface
         $totalCosts = 0;
 
         foreach ($consultants as $consultant) {
-            $totalCosts += $consultant->brut_salario ?: 0;
+            $totalCosts += $consultant->{'brut_salario'} ?: 0;
         }
 
         return $totalCosts;
