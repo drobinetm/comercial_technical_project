@@ -2,21 +2,20 @@
 
 namespace App\Services;
 
-use App\Repositories\ClientRepository;
 use App\Repositories\ConsultantRepository;
+use App\Traits\PeriodTrait;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class ConsultantService
 {
+    use PeriodTrait;
+
     protected ConsultantRepository $consultantRepository;
 
-    protected ClientRepository $clientRepository;
-
-    public function __construct(ConsultantRepository $consultantRepository, ClientRepository $clientRepository)
+    public function __construct(ConsultantRepository $consultantRepository)
     {
         $this->consultantRepository = $consultantRepository;
-        $this->clientRepository = $clientRepository;
     }
 
     public function getActiveConsultants(): Collection
@@ -33,36 +32,13 @@ class ConsultantService
         });
     }
 
-    public function getConsultantReport(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
-    {
-        $report = $this->consultantRepository->getConsultantReport($consultantIds, $dateFrom, $dateTo);
-
-        // Transform data for frontend consumption
-        return $report->map(function ($consultant) {
-            return [
-                'id' => $consultant['co_usuario'],
-                'name' => $consultant['no_usuario'],
-                'net_revenue' => $consultant['net_revenue'],
-                'fixed_cost' => $consultant['fixed_cost'],
-                'commission' => $consultant['commission'],
-                'profit' => $consultant['profit'],
-                'profit_margin' => $consultant['net_revenue'] > 0
-                    ? round(($consultant['profit'] / $consultant['net_revenue']) * 100, 2)
-                    : 0,
-                'performance_ratio' => $consultant['fixed_cost'] > 0
-                    ? round($consultant['net_revenue'] / $consultant['fixed_cost'], 2)
-                    : 0,
-            ];
-        });
-    }
-
     public function getConsultantReportByMonth(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
         if (! $dateFrom || ! $dateTo) {
-            return collect([]);
+            return collect();
         }
 
-        $result = collect([]);
+        $result = collect();
         $current = $dateFrom->copy()->startOfMonth();
         $endDate = $dateTo->copy()->endOfMonth();
 
@@ -78,27 +54,33 @@ class ConsultantService
                 $monthEnd = $dateTo->copy();
             }
 
+            // Get the period
+            $period = $this->formatMonthPeriod($monthStart, $monthEnd, $dateFrom, $dateTo);
+
             // Get data for this month
             $monthData = $this->consultantRepository->getConsultantReport($consultantIds, $monthStart, $monthEnd);
 
             foreach ($monthData as $consultant) {
+                $profitMargin = $consultant['net_revenue'] > 0
+                    ? round(($consultant['profit'] / $consultant['net_revenue']) * 100, 2)
+                    : 0;
+
+                $performanceRatio = $consultant['fixed_cost'] > 0
+                    ? round($consultant['net_revenue'] / $consultant['fixed_cost'], 2)
+                    : 0;
+
                 $result->push([
                     'id' => $consultant['co_usuario'],
                     'name' => $consultant['no_usuario'],
-                    'period' => $this->formatMonthPeriod($monthStart, $monthEnd, $dateFrom, $dateTo),
+                    'period' => $period,
                     'period_start' => $monthStart->format('Y-m-d'),
                     'period_end' => $monthEnd->format('Y-m-d'),
-                    // Frontend expects Portuguese field names
                     'receita' => $consultant['net_revenue'],
                     'custo' => $consultant['fixed_cost'],
                     'comissao' => $consultant['commission'],
                     'lucro' => $consultant['profit'],
-                    'profit_margin' => $consultant['net_revenue'] > 0
-                        ? round(($consultant['profit'] / $consultant['net_revenue']) * 100, 2)
-                        : 0,
-                    'performance_ratio' => $consultant['fixed_cost'] > 0
-                        ? round($consultant['net_revenue'] / $consultant['fixed_cost'], 2)
-                        : 0,
+                    'profit_margin' => $profitMargin,
+                    'performance_ratio' => $performanceRatio,
                 ]);
             }
 
@@ -108,42 +90,10 @@ class ConsultantService
         return $result;
     }
 
-    private function formatMonthPeriod(Carbon $monthStart, Carbon $monthEnd, Carbon $dateFrom, Carbon $dateTo): string
-    {
-        $monthName = $monthStart->locale('pt_BR')->isoFormat('MMMM YYYY');
-
-        // If it's a complete month and spans the entire month, just return the month name
-        if ($monthStart->format('d') === '01' &&
-            $monthEnd->equalTo($monthEnd->copy()->endOfMonth()) &&
-            $monthStart->gte($dateFrom) &&
-            $monthEnd->lte($dateTo)) {
-            return $monthName;
-        }
-
-        // Otherwise, show the date range
-        $rangeText = '';
-
-        // If we start later than the 1st of the month or later than our date range start
-        if ($monthStart->format('d') !== '01' || $monthStart->gt($dateFrom)) {
-            $rangeText .= 'Desde '.$monthStart->format('d/m/Y');
-        }
-
-        // If we end before the last day of the month or before our date range end
-        if (! $monthEnd->equalTo($monthEnd->copy()->endOfMonth()) || $monthEnd->lt($dateTo)) {
-            if ($rangeText) {
-                $rangeText .= ' ';
-            }
-            $rangeText .= 'Até '.$monthEnd->format('d/m/Y');
-        }
-
-        return $rangeText ? $monthName.' ('.$rangeText.')' : $monthName;
-    }
-
     public function getConsultantChart(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): array
     {
         $chartData = $this->consultantRepository->getConsultantChart($consultantIds, $dateFrom, $dateTo);
 
-        // Transform for Chart.js consumption
         $data = $chartData['data']->map(function ($consultant) {
             return [
                 'id' => $consultant['co_usuario'],
@@ -187,7 +137,6 @@ class ConsultantService
     {
         $pieData = $this->consultantRepository->getConsultantPieChart($consultantIds, $dateFrom, $dateTo);
 
-        // Generate colors for the pie chart
         $colors = [
             'rgba(255, 99, 132, 0.8)',
             'rgba(54, 162, 235, 0.8)',
@@ -215,12 +164,12 @@ class ConsultantService
                 'labels' => $data->pluck('name')->toArray(),
                 'datasets' => [
                     [
+                        'borderWidth' => 2,
                         'data' => $data->pluck('net_revenue')->toArray(),
                         'backgroundColor' => $data->pluck('color')->toArray(),
                         'borderColor' => $data->pluck('color')->map(function ($color) {
                             return str_replace('0.8', '1', $color);
                         })->toArray(),
-                        'borderWidth' => 2,
                     ],
                 ],
             ],
@@ -232,81 +181,24 @@ class ConsultantService
     {
         $stats = $this->consultantRepository->getConsultantStats($consultantIds, $dateFrom, $dateTo);
 
-        // Add additional business metrics
         $averageProfit = $stats['total_net_revenue'] - ($stats['total_fixed_cost'] + $stats['total_commission']);
+
         $profitMargin = $stats['total_net_revenue'] > 0
             ? round(($averageProfit / $stats['total_net_revenue']) * 100, 2)
+            : 0;
+
+        $efficiencyRatio = $stats['total_fixed_cost'] > 0
+            ? round($stats['total_net_revenue'] / $stats['total_fixed_cost'], 2)
             : 0;
 
         return array_merge($stats, [
             'average_profit' => round($averageProfit, 2),
             'profit_margin_percentage' => $profitMargin,
-            'efficiency_ratio' => $stats['total_fixed_cost'] > 0
-                ? round($stats['total_net_revenue'] / $stats['total_fixed_cost'], 2)
-                : 0,
+            'efficiency_ratio' => $efficiencyRatio,
             'period' => [
                 'from' => $dateFrom?->format('Y-m-d'),
                 'to' => $dateTo?->format('Y-m-d'),
             ],
         ]);
-    }
-
-    public function getDashboardSummary(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): array
-    {
-        $stats = $this->getConsultantStats($consultantIds, $dateFrom, $dateTo);
-        $report = $this->getConsultantReport($consultantIds, $dateFrom, $dateTo);
-
-        return [
-            'summary' => [
-                'total_consultants' => $stats['total_consultants'],
-                'total_revenue' => $stats['total_net_revenue'],
-                'total_profit' => $stats['average_profit'],
-                'average_performance' => $report->avg('performance_ratio'),
-                'top_performer' => $report->sortByDesc('net_revenue')->first(),
-                'period_label' => $this->getPeriodLabel($dateFrom, $dateTo),
-            ],
-            'trends' => [
-                'revenue_trend' => 'stable', // This could be calculated from historical data
-                'profit_trend' => 'increasing',
-                'efficiency_trend' => 'stable',
-            ],
-        ];
-    }
-
-    private function getPeriodLabel(?Carbon $dateFrom = null, ?Carbon $dateTo = null): string
-    {
-        if (! $dateFrom && ! $dateTo) {
-            return 'All Time';
-        }
-
-        if (! $dateTo) {
-            return 'From '.$dateFrom->format('M Y');
-        }
-
-        if (! $dateFrom) {
-            return 'Until '.$dateTo->format('M Y');
-        }
-
-        if ($dateFrom->year === $dateTo->year) {
-            if ($dateFrom->month === $dateTo->month) {
-                return $dateFrom->format('M Y');
-            }
-
-            return $dateFrom->format('M').' - '.$dateTo->format('M Y');
-        }
-
-        return $dateFrom->format('M Y').' - '.$dateTo->format('M Y');
-    }
-
-    public function validateConsultantIds(array $consultantIds): array
-    {
-        if (empty($consultantIds)) {
-            return [];
-        }
-
-        $activeConsultants = $this->getActiveConsultants();
-        $validIds = $activeConsultants->pluck('co_usuario')->toArray();
-
-        return array_intersect($consultantIds, $validIds);
     }
 }

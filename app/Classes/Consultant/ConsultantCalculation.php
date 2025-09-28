@@ -4,24 +4,26 @@ namespace App\Classes\Consultant;
 
 use Carbon\Carbon;
 
-
 class ConsultantCalculation
 {
     private NetRevenueData $netRevenueData;
+
     private FixedCostData $fixedCostData;
+
     private CommissionData $commissionData;
+
     private ProfitData $profitData;
 
     public function __construct(
         ?NetRevenueData $netRevenueData = null,
-        ?FixedCostData  $fixedCostData = null,
+        ?FixedCostData $fixedCostData = null,
         ?CommissionData $commissionData = null,
         ?ProfitData $profitData = null
     ) {
-        $this->netRevenueData = $netRevenueData ?? new NetRevenueData();
-        $this->fixedCostData = $fixedCostData ?? new FixedCostData();
-        $this->commissionData = $commissionData ?? new CommissionData();
-        $this->profitData = $profitData ?? new ProfitData();
+        $this->netRevenueData = $netRevenueData ?? new NetRevenueData;
+        $this->fixedCostData = $fixedCostData ?? new FixedCostData;
+        $this->commissionData = $commissionData ?? new CommissionData;
+        $this->profitData = $profitData ?? new ProfitData;
     }
 
     public function getNetRevenue(string $consultantId, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): float

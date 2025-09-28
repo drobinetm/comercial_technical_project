@@ -6,6 +6,7 @@ use App\Classes\Consultant\ConsultantCalculation;
 use App\Contracts\IConsultantRepositoryInterface;
 use App\Models\CaoUser;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class ConsultantRepository implements IConsultantRepositoryInterface
@@ -35,21 +36,24 @@ class ConsultantRepository implements IConsultantRepositoryInterface
 
     public function getConsultantReport(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
+        $report = collect();
+
+        // Get filtered active consultants
         $consultantsQuery = $this->getFilteredConsultants($consultantIds);
         $consultants = $consultantsQuery->get();
 
-        $report = collect();
-
         foreach ($consultants as $consultant) {
+            $user = $consultant->{'co_usuario'};
+
             $metrics = $this->consultantCalculation->metrics(
-                $consultant->co_usuario,
+                $user,
                 $dateFrom,
                 $dateTo
             );
 
             $report->push([
-                'co_usuario' => $consultant->co_usuario,
-                'no_usuario' => $consultant->no_usuario,
+                'co_usuario' => $user,
+                'no_usuario' => $consultant->{'no_usuario'},
                 'net_revenue' => $metrics['net_revenue'],
                 'fixed_cost' => $metrics['fixed_cost'],
                 'commission' => $metrics['commission'],
@@ -62,21 +66,24 @@ class ConsultantRepository implements IConsultantRepositoryInterface
 
     public function getConsultantChart(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
-        $consultantsQuery = $this->getFilteredConsultants($consultantIds);
-        $consultants = $consultantsQuery->get();
-
         $chartData = collect();
         $totalFixedCost = 0;
+
+        // Get filtered active consultants
+        $consultantsQuery = $this->getFilteredConsultants($consultantIds);
+        $consultants = $consultantsQuery->get();
         $consultantCount = $consultants->count();
 
         foreach ($consultants as $consultant) {
-            $netRevenue = $this->consultantCalculation->getNetRevenue($consultant->co_usuario, $dateFrom, $dateTo);
-            $fixedCost = $this->consultantCalculation->getFixedCost($consultant->co_usuario, $dateFrom, $dateTo);
+            $user = $consultant->{'co_usuario'};
+
+            $netRevenue = $this->consultantCalculation->getNetRevenue($user, $dateFrom, $dateTo);
+            $fixedCost = $this->consultantCalculation->getFixedCost($user, $dateFrom, $dateTo);
             $totalFixedCost += $fixedCost;
 
             $chartData->push([
-                'co_usuario' => $consultant->co_usuario,
-                'no_usuario' => $consultant->no_usuario,
+                'co_usuario' => $user,
+                'no_usuario' => $consultant->{'no_usuario'},
                 'net_revenue' => $netRevenue,
                 'fixed_cost' => $fixedCost,
             ]);
@@ -87,31 +94,31 @@ class ConsultantRepository implements IConsultantRepositoryInterface
 
         // Calculate maximum value for chart axes
         $maxRevenue = $chartData->max('net_revenue');
-        $maxValue = max($maxRevenue, $averageFixedCost) * 1.1; // 10% more for better visualization
+        $maxValue = max($maxRevenue, $averageFixedCost) * 1.1;
 
         return collect([
             'data' => $chartData->sortByDesc('net_revenue')->values(),
             'average_fixed_cost' => $averageFixedCost,
-            'max_axis_value' => round($maxValue, 0),
+            'max_axis_value' => round($maxValue),
         ]);
     }
 
     public function getConsultantPieChart(array $consultantIds = [], ?Carbon $dateFrom = null, ?Carbon $dateTo = null): Collection
     {
+        $pieData = collect();
+        $totalRevenue = 0;
+
         // Get filtered active consultants
         $consultantsQuery = $this->getFilteredConsultants($consultantIds);
         $consultants = $consultantsQuery->get();
 
-        $pieData = collect();
-        $totalRevenue = 0;
-
         // Calculate net revenue for each consultant using calculation service
         foreach ($consultants as $consultant) {
-            $netRevenue = $this->consultantCalculation->getNetRevenue($consultant->co_usuario, $dateFrom, $dateTo);
+            $netRevenue = $this->consultantCalculation->getNetRevenue($consultant->{'co_usuario'}, $dateFrom, $dateTo);
 
             $pieData->push([
-                'co_usuario' => $consultant->co_usuario,
-                'no_usuario' => $consultant->no_usuario,
+                'co_usuario' => $consultant->{'co_usuario'},
+                'no_usuario' => $consultant->{'no_usuario'},
                 'net_revenue' => $netRevenue,
             ]);
 
@@ -143,9 +150,11 @@ class ConsultantRepository implements IConsultantRepositoryInterface
         $totalCommission = 0;
 
         foreach ($consultants as $consultant) {
-            $totalRevenue += $this->consultantCalculation->getNetRevenue($consultant->co_usuario, $dateFrom, $dateTo);
-            $totalFixedCost += $this->consultantCalculation->getFixedCost($consultant->co_usuario, $dateFrom, $dateTo);
-            $totalCommission += $this->consultantCalculation->getCommission($consultant->co_usuario, $dateFrom, $dateTo);
+            $user = $consultant->{'co_usuario'};
+
+            $totalRevenue += $this->consultantCalculation->getNetRevenue($user, $dateFrom, $dateTo);
+            $totalFixedCost += $this->consultantCalculation->getFixedCost($user, $dateFrom, $dateTo);
+            $totalCommission += $this->consultantCalculation->getCommission($user, $dateFrom, $dateTo);
         }
 
         $totalProfit = $totalRevenue - ($totalFixedCost + $totalCommission);
@@ -161,7 +170,7 @@ class ConsultantRepository implements IConsultantRepositoryInterface
         ];
     }
 
-    private function getFilteredConsultants(array $consultantIds = [])
+    private function getFilteredConsultants(array $consultantIds = []): Builder
     {
         $query = CaoUser::join('permissao_sistema as ps', 'cao_usuario.co_usuario', '=', 'ps.co_usuario')
             ->where('ps.co_sistema', 1)

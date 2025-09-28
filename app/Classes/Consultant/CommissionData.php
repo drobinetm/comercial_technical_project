@@ -2,12 +2,11 @@
 
 namespace App\Classes\Consultant;
 
-use App\Contracts\ICalculationStrategyInterface;
+use App\Contracts\ICalculationDataInterface;
 use App\Models\CaoInvoice;
 use Carbon\Carbon;
 
-
-class CommissionData implements ICalculationStrategyInterface
+class CommissionData implements ICalculationDataInterface
 {
     public function calculate(string $consultantId, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): float
     {

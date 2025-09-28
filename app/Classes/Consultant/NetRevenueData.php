@@ -2,11 +2,11 @@
 
 namespace App\Classes\Consultant;
 
-use App\Contracts\ICalculationStrategyInterface;
+use App\Contracts\ICalculationDataInterface;
 use App\Models\CaoInvoice;
 use Carbon\Carbon;
 
-class NetRevenueData implements ICalculationStrategyInterface
+class NetRevenueData implements ICalculationDataInterface
 {
     public function calculate(string $consultantId, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): float
     {
@@ -17,16 +17,13 @@ class NetRevenueData implements ICalculationStrategyInterface
             $query->whereBetween('cao_fatura.data_emissao', [$dateFrom, $dateTo]);
         }
 
-        $invoices = $query->select(
-            'cao_fatura.valor',
-            'cao_fatura.total_imp_inc'
-        )->get();
+        $invoices = $query->select('cao_fatura.valor', 'cao_fatura.total_imp_inc')->get();
 
         $netRevenue = 0;
 
         foreach ($invoices as $invoice) {
-            $taxAmount = ($invoice->valor * $invoice->total_imp_inc) / 100;
-            $netRevenue += ($invoice->valor - $taxAmount);
+            $taxAmount = ($invoice->{'valor'} * $invoice->{'total_imp_inc'}) / 100;
+            $netRevenue += ($invoice->{'valor'} - $taxAmount);
         }
 
         return round($netRevenue, 2);

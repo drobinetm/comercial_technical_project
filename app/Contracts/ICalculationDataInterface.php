@@ -4,7 +4,7 @@ namespace App\Contracts;
 
 use Carbon\Carbon;
 
-interface ICalculationStrategyInterface
+interface ICalculationDataInterface
 {
     public function calculate(string $consultantId, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): float;
 }
